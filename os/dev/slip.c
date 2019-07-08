@@ -258,7 +258,12 @@ PROCESS_THREAD(slip_process, ev, data)
       if(input_callback) {
         input_callback();
       }
+
+	#ifdef SLIP_CONF_TCPIP_INPUT
+      SLIP_CONF_TCPIP_INPUT();
+	#else
       tcpip_input();
+    #endif /*SLIP_CONF_TCPIP_INPUT*/
     }
   }
 

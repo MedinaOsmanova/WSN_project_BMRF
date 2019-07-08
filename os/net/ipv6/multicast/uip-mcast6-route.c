@@ -49,6 +49,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#define DEBUG DEBUG_NONE
+#include "net/ipv6/uip-debug.h"
+
+
 /*---------------------------------------------------------------------------*/
 /* Size of the multicast routing table */
 #ifdef UIP_MCAST6_ROUTE_CONF_ROUTES
@@ -77,6 +81,36 @@ uip_mcast6_route_lookup(uip_ipaddr_t *group)
   return NULL;
 }
 /*---------------------------------------------------------------------------*/
+#if UIP_MCAST6_CONF_ENGINE == UIP_MCAST6_ENGINE_BMRF
+uip_mcast6_route_t *
+uip_mcast6_route_add(uip_ipaddr_t *group, uip_lladdr_t *subscriber)
+{
+PRINTF("test:mcast6_route_add: ");
+PRINTLLADDR(subscriber);
+PRINTF("\n");
+  locmcastrt = NULL;
+  for(locmcastrt = list_head(mcast_route_list);
+      locmcastrt != NULL;
+      locmcastrt = list_item_next(locmcastrt)) {
+    if(uip_ipaddr_cmp(&locmcastrt->group, group) && !memcmp(&locmcastrt->subscribed_child, subscriber, UIP_LLADDR_LEN)) {
+      /* The entry already exists */
+      PRINTF("entry already exists\n");
+      return locmcastrt;
+    }
+  }
+  locmcastrt = memb_alloc(&mcast_route_memb);
+  if(locmcastrt == NULL) {
+    PRINTF("no memory?\n");
+    return NULL;
+  }
+  list_add(mcast_route_list, locmcastrt);
+  uip_ipaddr_copy(&(locmcastrt->group), group);
+  memcpy(&(locmcastrt->subscribed_child), subscriber, UIP_LLADDR_LEN);
+  //memcpy(&(locmcastrt->lifetime), 64, 2);
+  PRINTF("entry added\n");
+  return locmcastrt;
+}
+#else /*UIP_MCAST6_CONF_ENGINE == UIP_MCAST6_ENGINE_BMRF*/
 uip_mcast6_route_t *
 uip_mcast6_route_add(uip_ipaddr_t *group)
 {
@@ -97,6 +131,7 @@ uip_mcast6_route_add(uip_ipaddr_t *group)
 
   return locmcastrt;
 }
+#endif /*UIP_MCAST6_CONF_ENGINE == UIP_MCAST6_ENGINE_BMRF*/
 /*---------------------------------------------------------------------------*/
 void
 uip_mcast6_route_rm(uip_mcast6_route_t *route)

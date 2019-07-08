@@ -761,7 +761,11 @@ dao_input_storing(void)
      * that operations on "rep" will be skipped.
      */
     rep = NULL;
+#if UIP_MCAST6_ENGINE == UIP_MCAST6_ENGINE_BMRF
+    mcast_group = uip_mcast6_route_add(&prefix, (uip_lladdr_t *)packetbuf_addr(PACKETBUF_ADDR_SENDER));
+#else
     mcast_group = uip_mcast6_route_add(&prefix);
+#endif /* UIP_MCAST6_ENGINE */
     if(mcast_group) {
       mcast_group->dag = dag;
       mcast_group->lifetime = RPL_LIFETIME(instance, lifetime);

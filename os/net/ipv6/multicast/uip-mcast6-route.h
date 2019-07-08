@@ -53,6 +53,9 @@ typedef struct uip_mcast6_route {
   uip_ipaddr_t group; /**< The multicast group */
   uint32_t lifetime; /**< Entry lifetime seconds */
   void *dag; /**< Pointer to an rpl_dag_t struct */
+#if UIP_MCAST6_CONF_ENGINE == UIP_MCAST6_ENGINE_BMRF
+  uip_lladdr_t subscribed_child;
+#endif /*UIP_MCAST6_CONF_ENGINE == UIP_MCAST6_ENGINE_BMRF*/
 } uip_mcast6_route_t;
 /*---------------------------------------------------------------------------*/
 /** \name Multicast Routing Table Manipulation */
@@ -71,7 +74,11 @@ uip_mcast6_route_t *uip_mcast6_route_lookup(uip_ipaddr_t *group);
  * \param group A pointer to the multicast group to be added
  * \return A pointer to the new route, or NULL if the route could not be added
  */
+#if UIP_MCAST6_CONF_ENGINE == UIP_MCAST6_ENGINE_BMRF
+uip_mcast6_route_t *uip_mcast6_route_add(uip_ipaddr_t *group, uip_lladdr_t *subscriber);
+#else
 uip_mcast6_route_t *uip_mcast6_route_add(uip_ipaddr_t *group);
+#endif /* UIP_MCAST6_ENGINE */
 
 /**
  * \brief Remove a multicast route

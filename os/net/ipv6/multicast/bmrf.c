@@ -103,20 +103,17 @@ static uint8_t fwd_spread;
 #define UIP_EXT_HDR_OPT_RPL_BUF   ((struct uip_ext_hdr_opt_rpl *)&uip_buf[uip_l3_icmp_hdr_len + 2])
 
 
-
-#define RIMESNIFFER 0
-#if RIMESNIFFER == 1
-
+#if BMRF_NETSTACK_SNIFFER == 1
 static int16_t ll_unicast_destinations = 0;
 static rtimer_clock_t begin;
 static rtimer_clock_t end;
 static uint16_t failedlink = 0;
 static uint16_t successlink = 0;
 
-void rime_input_callback(void){
+void sniffer_input_callback(void){
 }
 
-void rime_output_callback(int mac_status){
+void sniffer_output_callback(int mac_status){
 
 	if(mac_status == MAC_TX_OK){
 		successlink++;
@@ -143,10 +140,9 @@ void rime_output_callback(int mac_status){
 		end = RTIMER_NOW();
 		printf("%lu rtimer ticks, %u success, %u failed\n", end-begin, successlink, failedlink);
 	}
-
 }
-struct rime_sniffer sniffer = {NULL, rime_input_callback, rime_output_callback};
-#endif /*RIMESNIFFER*/
+struct netstack_sniffer sniffer = {NULL, sniffer_input_callback, sniffer_output_callback};
+#endif /*BMRF_NETSTACK_SNIFFER*/
 /*---------------------------------------------------------------------------*/
 #if BMRF_MODE == BMRF_BROADCAST_MODE || BMRF_MODE == BMRF_MIXED_MODE
 static void
@@ -161,12 +157,12 @@ mcast_fwd_with_broadcast(void)
 static void
 mcast_fwd_with_unicast(void)
 {
-#if RIMESNIFFER
+#if BMRF_NETSTACK_SNIFFER
 	ll_unicast_destinations = 0;
 	successlink = 0;
 	failedlink = 0;
 	begin = RTIMER_NOW();
-#endif /*RIMESNIFFER*/
+#endif /* BMRF_NETSTACK_SNIFFER */
 //printf("fwd_with_unicast\n");
   uip_mcast6_route_t *mcast_entries;
   for(mcast_entries = uip_mcast6_route_list_head();
@@ -181,9 +177,9 @@ mcast_fwd_with_unicast(void)
       PRINTLLADDR(&mcast_entries->subscribed_child);
       PRINTF("\n");
 
-#if RIMESNIFFER
+#if BMRF_NETSTACK_SNIFFER
       ll_unicast_destinations++;
-#endif /*RIMESNIFFER*/
+#endif /* BMRF_NETSTACK_SNIFFER */
     }
   }
 }
@@ -494,9 +490,9 @@ init()
 
   uip_mcast6_route_init();
 
-#if RIMESNIFFER
-  rime_sniffer_add(&sniffer);
-#endif /*RIMESNIFFER*/
+#if BMRF_NETSTACK_SNIFFER
+  netstack_sniffer_add(&sniffer);
+#endif /* BMRF_NETSTACK_SNIFFER */
 
 }
 /*---------------------------------------------------------------------------*/

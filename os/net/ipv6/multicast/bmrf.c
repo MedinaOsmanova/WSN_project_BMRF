@@ -330,7 +330,7 @@ in()
 	parent_lladdr = rpl_get_parent_lladdr(d->preferred_parent);
 
 	PRINTF("BMRF: RPL root LL address: ");
-	PRINTLLADDR(parent_lladdr);
+	PRINTLLADDR((uip_lladdr_t *)parent_lladdr);
 	PRINTF("\n");
   } else {
 
@@ -375,7 +375,7 @@ border_router_packet:
 #endif /*SLIP_MULTICAST*/
 
     PRINTF("BMRF: Broadcast packet. LL-sender: ");
-    PRINTLLADDR(packetbuf_addr(PACKETBUF_ADDR_SENDER));
+    PRINTLLADDR((uip_lladdr_t *)packetbuf_addr(PACKETBUF_ADDR_SENDER));
     PRINTF("\n");
     /* If we have an entry in the mcast routing table, something with
      * a higher RPL rank (somewhere down the tree) is a group member */
@@ -507,7 +507,7 @@ out()
     if(parent_lladdr != NULL) {
       /* Send to our preferred parent LL-address */
       PRINTF("BMRF: Seed, send to our preferred parent with address: ");
-      PRINTLLADDR(parent_lladdr);
+      PRINTLLADDR((uip_lladdr_t *)parent_lladdr);
       PRINTF("\n");
       tcpip_output((uip_lladdr_t *)parent_lladdr);
     } else {

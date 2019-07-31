@@ -137,6 +137,18 @@ rpl_purge_routes(void)
     r = uip_ds6_route_next(r);
   }
 
+#if RPL_WITH_MULTICAST
+  mcast_route = uip_mcast6_route_list_head();
+  /* First pass, decrement lifetime */
+  while(mcast_route != NULL) {
+    if(mcast_route->lifetime >= 1) {
+      mcast_route->lifetime--;
+    }
+    mcast_route = list_item_next(mcast_route);
+  }
+#endif /* RPL_WITH_MULTICAST */
+
+
   /* Second pass, remove dead routes */
   r = uip_ds6_route_head();
 
@@ -165,44 +177,29 @@ rpl_purge_routes(void)
 
 #if RPL_WITH_MULTICAST
   mcast_route = uip_mcast6_route_list_head();
-#if UIP_MCAST6_ENGINE == UIP_MCAST6_ENGINE_BMRF
-  /* First pass, decrement lifetime */
-  while(mcast_route != NULL) {
-    if(mcast_route->lifetime >= 1) {
-      mcast_route->lifetime--;
-      //PRINTF("mcast route lifetime set to %i\n", mcast_route->lifetime);
-    }
-    mcast_route = list_item_next(mcast_route);
-  }
-  /* Second pass, remove dead routes */
-  mcast_route = uip_mcast6_route_list_head();
-  while(mcast_route != NULL) {
-    if(mcast_route->lifetime < 1) {
-      uip_ipaddr_copy(&prefix, &mcast_route->group);
-      dag = mcast_route->dag;
-      uip_mcast6_route_rm(mcast_route);
-      if(!uip_mcast6_route_lookup(&prefix) && !uip_ds6_is_my_maddr(&prefix) && dag->rank != ROOT_RANK(default_instance)) {
-        dao_output_target(dag->preferred_parent, &prefix, RPL_ZERO_LIFETIME);
-        /* Don't schedule more than 1 No-Path DAO, let next iteration handle that */
-        return;
-      }
-      mcast_route = uip_mcast6_route_list_head();
-    } else {
-      mcast_route = list_item_next(mcast_route);
-    }
-  }
-#else
   while(mcast_route != NULL) {
     if(mcast_route->lifetime <= 1) {
-      PRINTF("RPL: removing dead route\n");
-      uip_mcast6_route_rm(mcast_route);
-      mcast_route = uip_mcast6_route_list_head();
+		uip_ipaddr_copy(&prefix, &mcast_route->group);
+		dag = mcast_route->dag;
+		LOG_INFO("Purged multicast route to ");
+		LOG_INFO_6ADDR(&mcast_route->group);
+#if UIP_MCAST6_ENGINE == UIP_MCAST6_ENGINE_BMRF
+		LOG_INFO_("on LL address ");
+		LOG_INFO_LLADDR((const linkaddr_t *)&mcast_route->subscribed_child);
+		if(!uip_mcast6_route_lookup(&prefix) && !uip_ds6_is_my_maddr(&prefix) && dag->rank != ROOT_RANK(default_instance)) {
+		  LOG_INFO_(" -> generate No-Path DAO\n");
+		  dao_output_target(dag->preferred_parent, &prefix, RPL_ZERO_LIFETIME);
+		  /* Don't schedule more than 1 No-Path DAO, let next iteration handle that */
+		  return;
+		}
+#endif /* UIP_MCAST6_ENGINE */
+		LOG_INFO_("\n");
+		uip_mcast6_route_rm(mcast_route);
+		mcast_route = uip_mcast6_route_list_head();
     } else {
-      mcast_route->lifetime--;
-      mcast_route = list_item_next(mcast_route);
+    	mcast_route = list_item_next(mcast_route);
     }
   }
-#endif /* UIP_MCAST6_ENGINE */
 #endif
 }
 /*---------------------------------------------------------------------------*/
@@ -210,9 +207,6 @@ void
 rpl_remove_routes(rpl_dag_t *dag)
 {
   uip_ds6_route_t *r;
-#if RPL_WITH_MULTICAST
-  uip_mcast6_route_t *mcast_route;
-#endif
 
   r = uip_ds6_route_head();
 
@@ -226,7 +220,7 @@ rpl_remove_routes(rpl_dag_t *dag)
   }
 
 #if RPL_WITH_MULTICAST
-  mcast_route = uip_mcast6_route_list_head();
+  uip_mcast6_route_t * mcast_route = uip_mcast6_route_list_head();
 
   while(mcast_route != NULL) {
     if(mcast_route->dag == dag) {
@@ -260,6 +254,48 @@ uip_ds6_route_t *
 rpl_add_route(rpl_dag_t *dag, uip_ipaddr_t *prefix, int prefix_len,
               uip_ipaddr_t *next_hop)
 {
+
+#if RPL_WITH_MULTICAST && UIP_MCAST6_ENGINE == UIP_MCAST6_ENGINE_BMRF
+
+	/* The following code checks if an existing route changed. In case it changed from single-hop
+	* to multi-hop, we check if the LL addr is present in the BMRF routing table and remove the
+	* old LL addr from the BMRF routing.*/
+
+	uip_ds6_route_t * current_route =  uip_ds6_route_lookup(prefix);
+	if(current_route != NULL){
+		const uip_ipaddr_t * current_nexthop = uip_ds6_route_nexthop(current_route);
+		if(current_nexthop != NULL && uip_ds6_route_is_nexthop(current_nexthop)) {
+			LOG_DBG("Updating single hop route for ");
+			LOG_DBG_6ADDR(prefix);
+			LOG_DBG(" -> ");
+			LOG_DBG_6ADDR(current_nexthop);
+			LOG_DBG(" to ");
+			LOG_DBG_6ADDR(next_hop);
+			LOG_DBG_("\n");
+
+			if(!uip_ipaddr_cmp(current_nexthop, next_hop)){
+				LOG_DBG("Route modified! Try purging current single-hop LLaddr from BMRF routing tables.\n");
+				const uip_lladdr_t *lladdr = uip_ds6_nbr_lladdr_from_ipaddr(current_nexthop);
+				if(lladdr != NULL) {
+					uip_mcast6_route_t *mcast_route = uip_mcast6_route_list_head();
+					while(mcast_route != NULL) {
+						if(linkaddr_cmp((const linkaddr_t *)&mcast_route->subscribed_child, (const linkaddr_t *)lladdr)) {
+							LOG_INFO("Purge multicast route on address ");
+							LOG_INFO_6ADDR(current_nexthop);
+							LOG_INFO_(" with corresponding LL addr ");
+							LOG_INFO_LLADDR((const linkaddr_t *)lladdr);
+							LOG_INFO_("\n");
+							mcast_route->lifetime = 1;
+						}
+						mcast_route = list_item_next(mcast_route);
+					}
+				}
+			}
+		}
+	}
+#endif
+
+
   uip_ds6_route_t *rep;
 
   if((rep = uip_ds6_route_add(prefix, prefix_len, next_hop)) == NULL) {

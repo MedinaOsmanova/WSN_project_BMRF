@@ -44,7 +44,8 @@
 
 #include <string.h>
 
-static void pwm_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
+static void pwm_post_put_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
+static void pwm_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
 void pwm_init_handler();
 
 
@@ -54,30 +55,45 @@ static pwm_t ledDriverPWM;
 /* A simple actuator example. Toggles the led */
 RESOURCE(pwm_light,
          "title=\"LED\";rt=\"Control\"",
-         NULL,
-         pwm_post_handler,
-         NULL,
+         pwm_get_handler,
+         pwm_post_put_handler,
+         pwm_post_put_handler,
          NULL);
 
 
 
 static void
-pwm_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
+pwm_post_put_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
   if(request->payload_len > 0 && request->payload_len <= 3){
     uint16_t newDutycycle = atoi((const char *)request->payload)*10;
     if(newDutycycle <= 1000) {
       dutycycle = newDutycycle;
       pwm_startdutycycle(&ledDriverPWM, dutycycle);
-    }
+      return;
+    } 
   }
+  coap_set_status_code(response, BAD_REQUEST_4_00); //Something wrong if we get here...
+}
+
+
+static void
+pwm_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
+{
+
+  int length = sprintf((char *)buffer, "%u", dutycycle/10);
+
+  coap_set_header_content_format(response, TEXT_PLAIN); /* text/plain is the default, hence this option could be omitted. */
+  coap_set_header_etag(response, (uint8_t *)&length, 1);
+  coap_set_payload(response, buffer, length);
 }
 
 void pwm_init_handler(){
-  pwm_configure(&ledDriverPWM, PWM_TIMER_2, PWM_TIMER_B, 1024, GPIO_D_NUM, 5, PWM_ON_WHEN_STOP);
+  //actual led in PoC on C3, red LED on PCB on D5
+  pwm_configure(&ledDriverPWM, PWM_TIMER_2, PWM_TIMER_B, 1024, GPIO_C_NUM, 3, PWM_ON_WHEN_STOP);
   //PRINTF("\nConfiguring PWM on timer %u/%d to frequency %lu Hz\n", ledDriverPWM.timer, ledDriverPWM.ab, ledDriverPWM.freq);
 
-  dutycycle = 200;
+  dutycycle = 700;
   pwm_startdutycycle(&ledDriverPWM, dutycycle);
   //PRINTF("Set PWM on timer %u/%u to duty cycle %u promille\n",ledDriverPWM.timer, ledDriverPWM.ab, dutycycle);
 

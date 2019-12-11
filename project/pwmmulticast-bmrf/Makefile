@@ -10,7 +10,7 @@ MODULES += os/net/ipv6/multicast
 MAKE_ROUTING = MAKE_ROUTING_RPL_CLASSIC
 
 
-MAKE_MAC = MAKE_MAC_TSCH
+#MAKE_MAC = MAKE_MAC_TSCH
 
 
 include $(CONTIKI)/Makefile.include

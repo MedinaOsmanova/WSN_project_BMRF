@@ -1,11 +1,11 @@
 #include "contiki.h"
-#include "cpu.h"
+//#include "cpu.h"
 #include "dev/leds.h"
-#include "dev/watchdog.h"
-#include "dev/sys-ctrl.h"
-#include "pwm.h"
-#include "lpm.h"
-#include "dev/ioc.h"
+//#include "dev/watchdog.h"
+//#include "dev/sys-ctrl.h"
+//#include "pwm.h"
+//#include "lpm.h"
+//#include "dev/ioc.h"
 #include "contiki-net.h"
 #include "net/ipv6/uip.h"
 #include "net/packetbuf.h"
@@ -22,7 +22,7 @@
 #define RESULTS_RESET 1
 
 static struct uip_udp_conn *server_conn;
-static pwm_t ledDriverPWM;
+//static pwm_t ledDriverPWM;
 
 static uint16_t dutycycle; //in promille
 
@@ -41,8 +41,8 @@ struct receivedMulticastStats {
 #error "Check the values of: NETSTACK_CONF_WITH_IPV6, UIP_CONF_ROUTER, UIP_CONF_IPV6_RPL"
 #endif
 
-PROCESS(pwm_multicast, "pwm multicast");
-AUTOSTART_PROCESSES(&pwm_multicast);
+PROCESS(multicast, "multicast");
+AUTOSTART_PROCESSES(&multicast);
 /*---------------------------------------------------------------------------*/
 static void
 tcpip_handler(void)
@@ -79,8 +79,8 @@ tcpip_handler(void)
 
 		if(*newdutycycle <= 1000) {
 			dutycycle = *newdutycycle;
-			pwm_startdutycycle(&ledDriverPWM, dutycycle);
-			PRINTF("Set PWM on timer %u/%u to duty cycle %u promille\n",ledDriverPWM.timer, ledDriverPWM.ab, dutycycle);
+			//pwm_startdutycycle(&ledDriverPWM, dutycycle);
+			//PRINTF("Set PWM on timer %u/%u to duty cycle %u promille\n",ledDriverPWM.timer, ledDriverPWM.ab, dutycycle);
 		}
 	  }
 
@@ -115,15 +115,15 @@ join_mcast_group(void)
 //  PRINTF("Unsubscribing from multicast group\n");
 //}
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(pwm_multicast, ev, data)
+PROCESS_THREAD(multicast, ev, data)
 {
   PROCESS_BEGIN();
 
-  pwm_configure(&ledDriverPWM, PWM_TIMER_2, PWM_TIMER_B, 1024, GPIO_C_NUM, 3, PWM_ON_WHEN_STOP);
+  //pwm_configure(&ledDriverPWM, PWM_TIMER_2, PWM_TIMER_B, 1024, GPIO_C_NUM, 3, PWM_ON_WHEN_STOP);
   //PRINTF("\nConfiguring PWM on timer %u/%d to frequency %lu Hz\n", ledDriverPWM.timer, ledDriverPWM.ab, ledDriverPWM.freq);
 
   dutycycle = 500;
-  pwm_startdutycycle(&ledDriverPWM, dutycycle);
+  //pwm_startdutycycle(&ledDriverPWM, dutycycle);
   //PRINTF("Set PWM on timer %u/%u to duty cycle %u promille\n",ledDriverPWM.timer, ledDriverPWM.ab, dutycycle);
 
   if(join_mcast_group() == NULL) {
